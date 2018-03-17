@@ -1,34 +1,7 @@
 use parser::Expr;
 use parser::Expression;
-
-
-struct ExpressionIterator {
-    next_expr: Expr,
-    current_expr: Expr
-}
-
-
-impl ExpressionIterator {
-    fn new(expr: Expression)-> ExpressionIterator {
-        let mut iter =  ExpressionIterator {
-            next_expr: 
-            current_expr: expr
-        }
-
-        
-    }
-}
-
-impl IntoIterator for Expression {
-    type Item = Expression;
-    type IntoIter ExpressionIterator;
-
-    fn into_iter(self) -> ExpressionIterator {
-        ExpressionIterator::new(self)
-    }
-}
-
-
+use tokenizer::Operand;
+use tokenizer::Atom;
 
 pub trait Eval {
     fn eval(&self) -> Expression;
@@ -36,7 +9,35 @@ pub trait Eval {
 
 impl Eval for Expression {
     fn eval(&self) -> Expression {
-        
+        if let &Expression::Expr(ref e) = self {
+            return e.eval();
+        }
+
+        self.clone()
+    }
+}
+
+impl Eval for Expr {
+    fn eval(&self) -> Expression {
+        if let Some(ref o) = self.operand {
+            return o.execute(&self.args);
+        }
+        return Expression::Atom(Atom::Null);
+    }
+}
+
+impl Operand {
+    fn execute(&self, args: &Box<Vec<Box<Expression>>>) -> Expression {
+        match self {
+            &Operand::Add => Expression::Atom(Atom::Integer(args.iter().fold(0, |acc, a| {
+                if let Expression::Atom(Atom::Integer(i)) = a.eval() {
+                    return acc + i;
+                }
+                return 0;
+            }))),
+            &Operand::Prg => args[0].eval(),
+            _ => Expression::Atom(Atom::Null),
+        }
     }
 }
 
@@ -54,4 +55,8 @@ fn test_simple_eval() {
         operand: Some(Operand::Prg),
         args: Box::new(vec![Box::new(add)]),
     };
+
+    let result = ast.eval();
+
+    assert_eq!(result, Expression::Atom(Atom::Integer(3)))
 }

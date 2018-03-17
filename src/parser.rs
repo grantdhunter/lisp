@@ -6,8 +6,8 @@ use std::iter::Peekable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
-    operand: Option<Operand>,
-    args: Box<Vec<Box<Expression>>>,
+    pub operand: Option<Operand>,
+    pub args: Box<Vec<Box<Expression>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

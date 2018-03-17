@@ -25,6 +25,7 @@ pub enum Atom {
     String(String),
     Integer(i64),
     Boolean(bool),
+    Null
 }
 
 #[derive(Debug, PartialEq)]
