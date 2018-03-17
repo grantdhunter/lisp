@@ -4,26 +4,27 @@ use std::str::Chars;
 
 //thanks to https://keepcalmandlearnrust.com/2016/08/iterator-and-peekable/
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operand {
-    ADD,
-    SUB,
+    Add,
+    Sub,
+    Prg,
 }
 
 impl Operand {
     pub fn from_str(s: &str) -> Option<Operand> {
         match s {
-            "+" => Some(Operand::ADD),
-            "-" => Some(Operand::SUB),
+            "+" => Some(Operand::Add),
+            "-" => Some(Operand::Sub),
             _ => None,
         }
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     String(String),
     Integer(i64),
-    Boolean(bool)
+    Boolean(bool),
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,16 +35,12 @@ pub enum Token {
     Operand(Operand),
 }
 
-impl Iterator for Token {
-    type Item = Token;
-}
-
 pub trait Tokenizer {
     fn tokenize(&self) -> Result<Vec<Token>, &'static str>;
 }
 
 impl Tokenizer for String {
-    fn tokenize(&self) -> Result<Vec<Token>, &'static str>  {
+    fn tokenize(&self) -> Result<Vec<Token>, &'static str> {
         let mut it = self.chars().peekable();
         let mut tokens: Vec<Token> = vec![];
 
@@ -63,9 +60,10 @@ impl Tokenizer for String {
                         let num = consume(&mut it, |b| b.is_numeric()).parse::<i64>().unwrap();
                         tokens.push(Token::Atom(Atom::Integer(num)))
                     }
-                    c if c.is_alphanumeric() => {
-                        tokens.push(Token::Atom(Atom::String(consume(&mut it, |b| b.is_alphanumeric()))))
-                    }
+                    c if c.is_alphanumeric() => tokens
+                        .push(Token::Atom(Atom::String(consume(&mut it, |b| {
+                            b.is_alphanumeric()
+                        })))),
                     '+' | '-' => {
                         it.next();
                         tokens.push(Token::Operand(Operand::from_str(&c.to_string()).unwrap()));
@@ -101,9 +99,9 @@ where
 fn test_simple_tokenizer() {
     let tokens = "(+ 1 234)".to_string().tokenize().unwrap();
     assert_eq!(tokens[0], Token::OpenBracket);
-    assert_eq!(tokens[1], Token::Operand(Operand::ADD));
-    assert_eq!(tokens[2], Token::Integer(1));
-    assert_eq!(tokens[3], Token::Integer(234));
+    assert_eq!(tokens[1], Token::Operand(Operand::Add));
+    assert_eq!(tokens[2], Token::Atom(Atom::Integer(1)));
+    assert_eq!(tokens[3], Token::Atom(Atom::Integer(234)));
     assert_eq!(tokens[4], Token::CloseBracket);
     assert_eq!(tokens.len(), 5);
 }
