@@ -7,7 +7,7 @@ use std::iter::Peekable;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
     pub operand: Option<Operand>,
-    pub args: Box<Vec<Box<Expression>>>,
+    pub args: Vec<Box<Expression>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,48 +25,48 @@ impl Parser for Vec<Token> {
         let mut it = self.iter().peekable();
         let expr = Expr {
             operand: Some(Operand::Prg),
-            args: Box::new(vec![]),
+            args: vec![],
         };
-        parse_expr(&mut it, Box::new(Expression::Expr(expr)))
+        parse_expr(&mut it, Expression::Expr(expr))
     }
 }
 
-fn parse_expr<'a, It>(it: &'a mut Peekable<It>, stack: Box<Expression>) -> Option<Box<Expr>>
+fn parse_expr<'a, It>(it: &'a mut Peekable<It>, stack: Expression) -> Option<Box<Expr>>
 where
     It: Iterator<Item = &'a Token>,
 {
     match it.next() {
-        Some(ref t) => match *t {
-            &Token::OpenBracket => {
+        Some(t) => match *t {
+            Token::OpenBracket => {
                 let expr = Expr {
                     operand: None,
-                    args: Box::new(vec![]),
+                    args: vec![],
                 };
-                if let Some(r) = parse_expr(it, Box::new(Expression::Expr(expr))) {
-                    if let Expression::Expr(mut e) = *stack {
+                if let Some(r) = parse_expr(it, Expression::Expr(expr)) {
+                    if let Expression::Expr(mut e) = stack {
                         e.args.push(Box::new(Expression::Expr(*r)));
                         return Some(Box::new(e));
                     }
                 }
                 None
             }
-            &Token::CloseBracket => {
-                if let Expression::Expr(mut e) = *stack {
+            Token::CloseBracket => {
+                if let Expression::Expr(mut e) = stack {
                     return Some(Box::new(e));
                 }
                 None
             }
-            &Token::Atom(ref a) => {
-                if let Expression::Expr(mut e) = *stack {
+            Token::Atom(ref a) => {
+                if let Expression::Expr(mut e) = stack {
                     e.args.push(Box::new(Expression::Atom(a.clone())));
-                    return parse_expr(it, Box::new(Expression::Expr(e)));
+                    return parse_expr(it, Expression::Expr(e));
                 }
                 None
             }
-            &Token::Operand(ref o) => {
-                if let Expression::Expr(mut e) = *stack {
+            Token::Operand(ref o) => {
+                if let Expression::Expr(mut e) = stack {
                     e.operand = Some(o.clone());
-                    return parse_expr(it, Box::new(Expression::Expr(e)));
+                    return parse_expr(it, Expression::Expr(e));
                 }
                 None
             }

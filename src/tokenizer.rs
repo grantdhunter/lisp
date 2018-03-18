@@ -24,8 +24,8 @@ impl Operand {
 pub enum Atom {
     String(String),
     Integer(i64),
-    Boolean(bool),
-    Null
+    // Boolean(bool),
+    Null,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,35 +45,32 @@ impl Tokenizer for String {
         let mut it = self.chars().peekable();
         let mut tokens: Vec<Token> = vec![];
 
-        loop {
-            match it.peek() {
-                Some(&c) => match c {
-                    '(' => {
-                        it.next();
-                        tokens.push(Token::OpenBracket);
-                    }
-                    ')' => {
-                        it.next();
-                        tokens.push(Token::CloseBracket);
-                    }
+        while let Some(&c) = it.peek() {
+            match c {
+                '(' => {
+                    it.next();
+                    tokens.push(Token::OpenBracket);
+                }
+                ')' => {
+                    it.next();
+                    tokens.push(Token::CloseBracket);
+                }
 
-                    '0'...'9' => {
-                        let num = consume(&mut it, |b| b.is_numeric()).parse::<i64>().unwrap();
-                        tokens.push(Token::Atom(Atom::Integer(num)))
-                    }
-                    c if c.is_alphanumeric() => tokens
-                        .push(Token::Atom(Atom::String(consume(&mut it, |b| {
-                            b.is_alphanumeric()
-                        })))),
-                    '+' | '-' => {
-                        it.next();
-                        tokens.push(Token::Operand(Operand::from_str(&c.to_string()).unwrap()));
-                    }
-                    _ => {
-                        it.next();
-                    }
-                },
-                None => break,
+                '0'...'9' => {
+                    let num = consume(&mut it, |b| b.is_numeric()).parse::<i64>().unwrap();
+                    tokens.push(Token::Atom(Atom::Integer(num)))
+                }
+                c if c.is_alphanumeric() => tokens
+                    .push(Token::Atom(Atom::String(consume(&mut it, |b| {
+                        b.is_alphanumeric()
+                    })))),
+                '+' | '-' => {
+                    it.next();
+                    tokens.push(Token::Operand(Operand::from_str(&c.to_string()).unwrap()));
+                }
+                _ => {
+                    it.next();
+                }
             }
         }
         Ok(tokens)

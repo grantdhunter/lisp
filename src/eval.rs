@@ -9,7 +9,7 @@ pub trait Eval {
 
 impl Eval for Expression {
     fn eval(&self) -> Expression {
-        if let &Expression::Expr(ref e) = self {
+        if let Expression::Expr(ref e) = *self {
             return e.eval();
         }
 
@@ -22,20 +22,20 @@ impl Eval for Expr {
         if let Some(ref o) = self.operand {
             return o.execute(&self.args);
         }
-        return Expression::Atom(Atom::Null);
+        Expression::Atom(Atom::Null)
     }
 }
 
 impl Operand {
-    fn execute(&self, args: &Box<Vec<Box<Expression>>>) -> Expression {
-        match self {
-            &Operand::Add => Expression::Atom(Atom::Integer(args.iter().fold(0, |acc, a| {
+    fn execute(&self, args: &[Box<Expression>]) -> Expression {
+        match *self {
+            Operand::Add => Expression::Atom(Atom::Integer(args.iter().fold(0, |acc, a| {
                 if let Expression::Atom(Atom::Integer(i)) = a.eval() {
                     return acc + i;
                 }
-                return 0;
+                0
             }))),
-            &Operand::Prg => args[0].eval(),
+            Operand::Prg => args[0].eval(),
             _ => Expression::Atom(Atom::Null),
         }
     }
