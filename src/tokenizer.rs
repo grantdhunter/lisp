@@ -1,6 +1,7 @@
 use std::iter::Iterator;
 use std::iter::Peekable;
 use std::str::Chars;
+use std::fmt;
 
 //thanks to https://keepcalmandlearnrust.com/2016/08/iterator-and-peekable/
 
@@ -8,6 +9,8 @@ use std::str::Chars;
 pub enum Operand {
     Add,
     Sub,
+    Mul,
+    Div,
     Prg,
 }
 
@@ -16,16 +19,41 @@ impl Operand {
         match s {
             "+" => Some(Operand::Add),
             "-" => Some(Operand::Sub),
+            "*" => Some(Operand::Mul),
+            "/" => Some(Operand::Div),
             _ => None,
         }
     }
 }
+impl fmt::Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let token = match *self {
+            Operand::Add => "+",
+            Operand::Sub => "-",
+            Operand::Mul => "*",
+            Operand::Div => "/",
+            Operand::Prg => "\n",
+        };
+        write!(f, "{}", token)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     String(String),
     Integer(i64),
     // Boolean(bool),
     Null,
+}
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let token = match *self {
+            Atom::Integer(ref i) => format!("{}", i),
+            Atom::String(ref s) => format!("{}", s),
+            Atom::Null => format!("null"),
+        };
+        write!(f, "{}", token)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -64,7 +92,7 @@ impl Tokenizer for String {
                     .push(Token::Atom(Atom::String(consume(&mut it, |b| {
                         b.is_alphanumeric()
                     })))),
-                '+' | '-' => {
+                '+' | '-' | '*' | '/' => {
                     it.next();
                     tokens.push(Token::Operand(Operand::from_str(&c.to_string()).unwrap()));
                 }

@@ -3,6 +3,7 @@ use tokenizer::Operand;
 use tokenizer::Atom;
 use std::iter::Iterator;
 use std::iter::Peekable;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
@@ -10,10 +11,40 @@ pub struct Expr {
     pub args: Vec<Box<Expression>>,
 }
 
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut disp;
+        let mut end = ")";
+
+        if let Some(ref op) = self.operand {
+            disp = format!("({}", op);
+            if op == &Operand::Prg {
+                end = "\n)"
+            }
+        } else {
+            disp = format!("(wat!");
+        }
+
+        for e in &self.args {
+            disp.push_str(&format!(" {}", e));
+        }
+        return write!(f, "{}{}", disp, end);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Atom(Atom),
     Expr(Expr),
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Expression::Atom(ref a) => write!(f, "{}", a),
+            Expression::Expr(ref e) => write!(f, "{}", e),
+        }
+    }
 }
 
 pub trait Parser {
@@ -88,16 +119,16 @@ fn test_simple_parse() {
     if let Some(result) = tokens.parse() {
         let add = Expression::Expr(Expr {
             operand: Some(Operand::Add),
-            args: Box::new(vec![
+            args: vec![
                 Box::new(Expression::Atom(Atom::Integer(1))),
                 Box::new(Expression::Atom(Atom::Integer(2))),
-            ]),
+            ],
         });
         assert_eq!(
             *result,
             Expr {
                 operand: Some(Operand::Prg),
-                args: Box::new(vec![Box::new(add)]),
+                args: vec![Box::new(add)],
             }
         )
     } else {
