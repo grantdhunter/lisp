@@ -73,8 +73,19 @@ impl Operand {
                 }
                 Expression::Atom(Atom::Integer(0))
             }
+            Operand::Cat => Expression::Atom(Atom::String(args.iter().fold(
+                String::new(),
+                |mut acc, a| {
+                    if let Expression::Atom(Atom::String(s)) = a.eval() {
+                        acc.push_str(&s);
+                    }
+                    acc
+                },
+            ))),
             Operand::Prg => args[0].eval(),
-            _ => Expression::Atom(Atom::Null),
+        }
+        Operand::If => {
+           
         }
     }
 }
@@ -88,11 +99,13 @@ fn test_simple_add() {
             Box::new(Expression::Atom(Atom::Integer(2))),
             Box::new(Expression::Atom(Atom::Integer(3))),
         ],
+        parent: None,
     });
 
     let ast = Expr {
         operand: Some(Operand::Prg),
         args: vec![Box::new(add)],
+        parent: None,
     };
 
     let result = ast.eval();
@@ -108,11 +121,13 @@ fn test_simple_sub() {
             Box::new(Expression::Atom(Atom::Integer(2))),
             Box::new(Expression::Atom(Atom::Integer(1))),
         ],
+        parent: None,
     });
 
     let ast = Expr {
         operand: Some(Operand::Prg),
         args: vec![Box::new(sub)],
+        parent: None,
     };
 
     let result = ast.eval();
@@ -129,11 +144,13 @@ fn test_simple_mul() {
             Box::new(Expression::Atom(Atom::Integer(2))),
             Box::new(Expression::Atom(Atom::Integer(1))),
         ],
+        parent: None,
     });
 
     let ast = Expr {
         operand: Some(Operand::Prg),
         args: vec![Box::new(mul)],
+        parent: None,
     };
 
     let result = ast.eval();
@@ -150,14 +167,40 @@ fn test_simple_div() {
             Box::new(Expression::Atom(Atom::Integer(2))),
             Box::new(Expression::Atom(Atom::Integer(1))),
         ],
+        parent: None,
     });
 
     let ast = Expr {
         operand: Some(Operand::Prg),
         args: vec![Box::new(div)],
+        parent: None,
     };
 
     let result = ast.eval();
 
     assert_eq!(result, Expression::Atom(Atom::Integer(2)))
+}
+
+
+#[test]
+fn test_simple_cat() {
+    let div = Expression::Expr(Expr {
+        operand: Some(Operand::Cat),
+        args: vec![
+            Box::new(Expression::Atom(Atom::String("foo".to_string()))),
+            Box::new(Expression::Atom(Atom::String("bar".to_string()))),
+        ],
+        parent: None,
+    });
+
+    let ast = Expr {
+        operand: Some(Operand::Prg),
+        args: vec![Box::new(div)],
+        parent: None,
+    };
+
+    let result = ast.eval();
+
+    assert_eq!(result, Expression::Atom(Atom::String("foobar".to_string())))
+
 }

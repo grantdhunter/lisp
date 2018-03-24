@@ -11,6 +11,8 @@ pub enum Operand {
     Sub,
     Mul,
     Div,
+    Cat,
+    If,
     Prg,
 }
 
@@ -21,6 +23,8 @@ impl Operand {
             "-" => Some(Operand::Sub),
             "*" => Some(Operand::Mul),
             "/" => Some(Operand::Div),
+            "cat" => Some(Operand::Cat),
+            "if" => Some(Operand::If)
             _ => None,
         }
     }
@@ -33,6 +37,8 @@ impl fmt::Display for Operand {
             Operand::Mul => "*",
             Operand::Div => "/",
             Operand::Prg => "\n",
+            Operand::Cat => "cat",
+            Operand::if => "If",
         };
         write!(f, "{}", token)
     }
@@ -41,16 +47,17 @@ impl fmt::Display for Operand {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     String(String),
+    Token(String),
     Integer(i64),
-    // Boolean(bool),
     Null,
 }
 impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let token = match *self {
-            Atom::Integer(ref i) => format!("{}", i),
-            Atom::String(ref s) => format!("{}", s),
-            Atom::Null => format!("null"),
+            Atom::Integer(ref i) => i.to_string(),
+            Atom::String(ref s) => s.to_string(),
+            Atom::Token(ref t) => t.to_string(),
+            Atom::Null => "null".to_string(),
         };
         write!(f, "{}", token)
     }
@@ -86,10 +93,16 @@ impl Tokenizer for String {
 
                 '0'...'9' => {
                     let num = consume(&mut it, |b| b.is_numeric()).parse::<i64>().unwrap();
-                    tokens.push(Token::Atom(Atom::Integer(num)))
+                    tokens.push(Token::Atom(Atom::Integer(num)));
+                }
+                '"' | '\'' => {
+                    it.next();
+                    tokens.push(Token::Atom(Atom::String(consume_until(&mut it, |b| {
+                        b == '"' || b == '\''
+                    }))));
                 }
                 c if c.is_alphanumeric() => tokens
-                    .push(Token::Atom(Atom::String(consume(&mut it, |b| {
+                    .push(Token::Atom(Atom::Token(consume(&mut it, |b| {
                         b.is_alphanumeric()
                     })))),
                 '+' | '-' | '*' | '/' => {
@@ -120,14 +133,41 @@ where
     }
     v.into_iter().collect()
 }
+fn consume_until<F>(it: &mut Peekable<Chars>, cond: F) -> String
+where
+    F: Fn(char) -> bool,
+{
+    let mut v: Vec<char> = vec![];
+    while let Some(&c) = it.peek() {
+        if cond(c) {
+            it.next();
+            break;
+        } else {
+            if c == '\\' {
+                it.next();
+            }
+
+            it.next();
+            v.push(c);
+        }
+    }
+    v.into_iter().collect()
+}
 
 #[test]
 fn test_simple_tokenizer() {
-    let tokens = "(+ 1 234)".to_string().tokenize().unwrap();
+    let tokens = "(+ 1 234 \"asd\" qwe \"zxc\n\")"
+        .to_string()
+        .tokenize()
+        .unwrap();
+    println!("{:?}", tokens);
     assert_eq!(tokens[0], Token::OpenBracket);
     assert_eq!(tokens[1], Token::Operand(Operand::Add));
     assert_eq!(tokens[2], Token::Atom(Atom::Integer(1)));
     assert_eq!(tokens[3], Token::Atom(Atom::Integer(234)));
-    assert_eq!(tokens[4], Token::CloseBracket);
-    assert_eq!(tokens.len(), 5);
+    assert_eq!(tokens[4], Token::Atom(Atom::String("asd".to_string())));
+    assert_eq!(tokens[5], Token::Atom(Atom::Token("qwe".to_string())));
+    assert_eq!(tokens[6], Token::Atom(Atom::String("zxc\n".to_string())));
+    assert_eq!(tokens[7], Token::CloseBracket);
+    assert_eq!(tokens.len(), 8);
 }
