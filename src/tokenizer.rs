@@ -14,6 +14,10 @@ pub enum Operand {
     Cat,
     If,
     Prg,
+    And,
+    Or,
+    Eq,
+    Not,
 }
 
 impl Operand {
@@ -25,6 +29,10 @@ impl Operand {
             "/" => Some(Operand::Div),
             "cat" => Some(Operand::Cat),
             "if" => Some(Operand::If),
+            "&" => Some(Operand::And),
+            "|" => Some(Operand::Or),
+            "=" => Some(Operand::Eq),
+            "!" => Some(Operand::Not),
             _ => None,
         }
     }
@@ -39,6 +47,10 @@ impl fmt::Display for Operand {
             Operand::Prg => "\n",
             Operand::Cat => "cat",
             Operand::If => "if",
+            Operand::And => "&",
+            Operand::Or => "|",
+            Operand::Eq => "=",
+            Operand::Not => "!",
         };
         write!(f, "{}", token)
     }
@@ -104,7 +116,7 @@ impl Tokenizer for String {
                     }))));
                 }
                 c if !c.is_whitespace() => {
-                    let token = consume(&mut it, |b| !b.is_whitespace());
+                    let token = consume(&mut it, |b| !b.is_whitespace() && b != '(' && b!= ')');
                     match token.as_ref() {
                         "true" => tokens.push(Token::Atom(Atom::Bool(true))),
                         "false" => tokens.push(Token::Atom(Atom::Bool(false))),
@@ -175,4 +187,15 @@ fn test_simple_tokenizer() {
     assert_eq!(tokens[6], Token::Atom(Atom::String("zxc\n".to_string())));
     assert_eq!(tokens[7], Token::CloseBracket);
     assert_eq!(tokens.len(), 8);
+}
+#[test]
+fn test_tokenizer_and() {
+    let tokens = "(& true false)".to_string().tokenize().unwrap();
+
+    assert_eq!(tokens[0], Token::OpenBracket);
+    assert_eq!(tokens[1], Token::Operand(Operand::And));
+    assert_eq!(tokens[2], Token::Atom(Atom::Bool(true)));
+    assert_eq!(tokens[3], Token::Atom(Atom::Bool(false)));
+    assert_eq!(tokens[4], Token::CloseBracket);
+    assert_eq!(tokens.len(), 5);
 }

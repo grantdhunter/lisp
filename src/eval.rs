@@ -103,6 +103,35 @@ impl Operand {
                 println!("Default if");
                 Expression::Atom(Atom::Null)
             }
+            Operand::And => Expression::Atom(Atom::Bool(args.iter().fold(true, |acc, a| {
+                if let Expression::Atom(Atom::Bool(i)) = a.eval() {
+                    return acc && i;
+                }
+                println!("Default And");
+                false
+            }))),
+            Operand::Or => Expression::Atom(Atom::Bool(args.iter().fold(false, |acc, a| {
+                if let Expression::Atom(Atom::Bool(i)) = a.eval() {
+                    return acc || i;
+                }
+                println!("Default or");
+                false
+            }))),
+            Operand::Eq => {
+                if let (Some(a1), Some(a2)) = (args.first(), args.get(1)) {
+                    return Expression::Atom(Atom::Bool(a1.eval() == a2.eval()));
+                }
+                println!("Default Eq");
+                Expression::Atom(Atom::Bool(false))
+            }
+            Operand::Not => {
+                if let Some(a) = args.first() {
+                    if let Expression::Atom(Atom::Bool(b)) = a.eval() {
+                        return Expression::Atom(Atom::Bool(!b));
+                    }
+                }
+                Expression::Atom(Atom::Bool(false))
+            }
         }
     }
 }
@@ -291,4 +320,83 @@ fn test_simple_if_false() {
         result,
         Expression::Atom(Atom::String("That is False".to_string()))
     )
+}
+
+#[test]
+fn test_simple_and() {
+    let and = Expression::Expr(Expr {
+        operand: Some(Operand::And),
+        args: vec![
+            Box::new(Expression::Atom(Atom::Bool(true))),
+            Box::new(Expression::Atom(Atom::Bool(false))),
+        ],
+        parent: None,
+    });
+
+    let ast = Expr {
+        operand: Some(Operand::Prg),
+        args: vec![Box::new(and)],
+        parent: None,
+    };
+
+    let result = ast.eval();
+    assert_eq!(result, Expression::Atom(Atom::Bool(false)))
+}
+
+#[test]
+fn test_simple_or() {
+    let or = Expression::Expr(Expr {
+        operand: Some(Operand::Or),
+        args: vec![
+            Box::new(Expression::Atom(Atom::Bool(true))),
+            Box::new(Expression::Atom(Atom::Bool(false))),
+        ],
+        parent: None,
+    });
+
+    let ast = Expr {
+        operand: Some(Operand::Prg),
+        args: vec![Box::new(or)],
+        parent: None,
+    };
+
+    let result = ast.eval();
+    assert_eq!(result, Expression::Atom(Atom::Bool(true)))
+}
+#[test]
+fn test_simple_eq() {
+    let eq = Expression::Expr(Expr {
+        operand: Some(Operand::Eq),
+        args: vec![
+            Box::new(Expression::Atom(Atom::Bool(true))),
+            Box::new(Expression::Atom(Atom::Bool(false))),
+        ],
+        parent: None,
+    });
+
+    let ast = Expr {
+        operand: Some(Operand::Prg),
+        args: vec![Box::new(eq)],
+        parent: None,
+    };
+
+    let result = ast.eval();
+    assert_eq!(result, Expression::Atom(Atom::Bool(false)))
+}
+#[test]
+fn test_simple_not() {
+    let not = Expression::Expr(Expr {
+        operand: Some(Operand::Not),
+        args: vec![Box::new(Expression::Atom(Atom::Bool(false)))],
+        parent: None,
+    });
+
+    let ast = Expr {
+        operand: Some(Operand::Prg),
+        args: vec![Box::new(not)],
+        parent: None,
+    };
+
+    let result = ast.eval();
+    assert_eq!(result, Expression::Atom(Atom::Bool(true)))
 }
