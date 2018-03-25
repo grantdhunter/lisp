@@ -7,15 +7,8 @@ use parser::Parser;
 use eval::Eval;
 
 fn main() {
-    println!("========= Eval 2=========\n");
-    println!("(+ 1 (* 2 (- 3 1)) 4 (- 9 3) (/ 4 2))");
-    let tokens = "(+ 1 (* 2 (- 3 1)) 4 (- 9 3) (/ 4 2))"
-        .to_string()
-        .tokenize()
-        .unwrap();
-    println!("{:?}", tokens);
+    let tokens = "(+ (if false 6 5) 1)".to_string().tokenize().unwrap();
     let ast = tokens.parse();
-    println!("{}", ast);
     let result = ast.eval();
 
     println!("{}", result);

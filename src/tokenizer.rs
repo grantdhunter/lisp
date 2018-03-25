@@ -24,7 +24,7 @@ impl Operand {
             "*" => Some(Operand::Mul),
             "/" => Some(Operand::Div),
             "cat" => Some(Operand::Cat),
-            "if" => Some(Operand::If)
+            "if" => Some(Operand::If),
             _ => None,
         }
     }
@@ -38,7 +38,7 @@ impl fmt::Display for Operand {
             Operand::Div => "/",
             Operand::Prg => "\n",
             Operand::Cat => "cat",
-            Operand::if => "If",
+            Operand::If => "if",
         };
         write!(f, "{}", token)
     }
@@ -49,6 +49,7 @@ pub enum Atom {
     String(String),
     Token(String),
     Integer(i64),
+    Bool(bool),
     Null,
 }
 impl fmt::Display for Atom {
@@ -57,6 +58,7 @@ impl fmt::Display for Atom {
             Atom::Integer(ref i) => i.to_string(),
             Atom::String(ref s) => s.to_string(),
             Atom::Token(ref t) => t.to_string(),
+            Atom::Bool(ref b) => b.to_string(),
             Atom::Null => "null".to_string(),
         };
         write!(f, "{}", token)
@@ -101,13 +103,16 @@ impl Tokenizer for String {
                         b == '"' || b == '\''
                     }))));
                 }
-                c if c.is_alphanumeric() => tokens
-                    .push(Token::Atom(Atom::Token(consume(&mut it, |b| {
-                        b.is_alphanumeric()
-                    })))),
-                '+' | '-' | '*' | '/' => {
-                    it.next();
-                    tokens.push(Token::Operand(Operand::from_str(&c.to_string()).unwrap()));
+                c if !c.is_whitespace() => {
+                    let token = consume(&mut it, |b| !b.is_whitespace());
+                    match token.as_ref() {
+                        "true" => tokens.push(Token::Atom(Atom::Bool(true))),
+                        "false" => tokens.push(Token::Atom(Atom::Bool(false))),
+                        _ => match Operand::from_str(&token) {
+                            Some(t) => tokens.push(Token::Operand(t)),
+                            None => tokens.push(Token::Atom(Atom::Token(token))),
+                        },
+                    }
                 }
                 _ => {
                     it.next();
