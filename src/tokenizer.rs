@@ -13,11 +13,14 @@ pub enum Operand {
     Div,
     Cat,
     If,
-    Prg,
+    Scope,
     And,
     Or,
     Eq,
     Not,
+    Def,
+    Func(String),
+    Let,
 }
 
 impl Operand {
@@ -33,6 +36,8 @@ impl Operand {
             "|" => Some(Operand::Or),
             "=" => Some(Operand::Eq),
             "!" => Some(Operand::Not),
+            "def" => Some(Operand::Def),
+            "let" => Some(Operand::Let),
             _ => None,
         }
     }
@@ -44,13 +49,16 @@ impl fmt::Display for Operand {
             Operand::Sub => "-",
             Operand::Mul => "*",
             Operand::Div => "/",
-            Operand::Prg => "\n",
             Operand::Cat => "cat",
             Operand::If => "if",
             Operand::And => "&",
             Operand::Or => "|",
             Operand::Eq => "=",
             Operand::Not => "!",
+            Operand::Def => "def",
+            Operand::Func(ref f) => f,
+            Operand::Scope => "\n",
+            Operand::Let => "let",
         };
         write!(f, "{}", token)
     }
@@ -62,6 +70,7 @@ pub enum Atom {
     Token(String),
     Integer(i64),
     Bool(bool),
+    List(Vec<Atom>),
     Null,
 }
 impl fmt::Display for Atom {
@@ -71,6 +80,7 @@ impl fmt::Display for Atom {
             Atom::String(ref s) => s.to_string(),
             Atom::Token(ref t) => t.to_string(),
             Atom::Bool(ref b) => b.to_string(),
+            Atom::List(ref l) => format!("{:?}", l),
             Atom::Null => "null".to_string(),
         };
         write!(f, "{}", token)
@@ -116,7 +126,7 @@ impl Tokenizer for String {
                     }))));
                 }
                 c if !c.is_whitespace() => {
-                    let token = consume(&mut it, |b| !b.is_whitespace() && b != '(' && b!= ')');
+                    let token = consume(&mut it, |b| !b.is_whitespace() && b != '(' && b != ')');
                     match token.as_ref() {
                         "true" => tokens.push(Token::Atom(Atom::Bool(true))),
                         "false" => tokens.push(Token::Atom(Atom::Bool(false))),

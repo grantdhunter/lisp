@@ -18,7 +18,7 @@ impl fmt::Display for Expr {
 
         if let Some(ref op) = self.operand {
             disp = format!("({}", op);
-            if op == &Operand::Prg {
+            if op == &Operand::Scope {
                 end = "\n)"
             }
         } else {
@@ -55,7 +55,7 @@ impl Parser for Vec<Token> {
     fn parse(&self) -> Box<Expr> {
         let mut it = self.iter();
         let expr = Box::new(Expr {
-            operand: Some(Operand::Prg),
+            operand: Some(Operand::Scope),
             args: vec![],
             parent: None,
         });
@@ -122,7 +122,7 @@ fn test_simple_parse() {
     assert_eq!(
         *result,
         Expr {
-            operand: Some(Operand::Prg),
+            operand: Some(Operand::Scope),
             args: vec![Box::new(add)],
             parent: None,
         }
