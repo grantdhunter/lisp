@@ -10,6 +10,24 @@ pub struct Scope {
     pub variable: HashMap<String, Expression>,
     pub funcs: HashMap<String, Func>,
 }
+
+impl Scope {
+    fn get_var(&self, key: &String) -> Option<Expression> {
+        Scope::get_var_from_scope(self, key)
+    }
+
+    fn get_var_from_scope(scope: &Scope, key: &String) -> Option<Expression> {
+        if let Some(t) = scope.variable.get(key) {
+            return Some(t.clone());
+        }
+
+        if let Some(ref s) = scope.parent {
+            return Scope::get_var_from_scope(&s, key);
+        }
+        None
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Func {
     pub name: String,
@@ -26,6 +44,13 @@ impl Eval for Expression {
     fn eval(&self, scope: &mut Scope) -> Expression {
         if let Expression::Expr(ref e) = *self {
             return e.eval(scope);
+        }
+
+        if let Expression::Atom(Atom::Token(ref t)) = *self {
+            if let Some(v) = scope.get_var(t) {
+                return v;
+            }
+            return Expression::Atom(Atom::Null);
         }
 
         self.clone()
@@ -163,7 +188,10 @@ impl Operand {
                 scope.funcs.insert(name, func);
                 Expression::Atom(Atom::Null)
             }
-            Operand::Func(_) => Expression::Atom(Atom::Null),
+            Operand::Func(ref f) => {
+                
+                Expression::Atom(Atom::Null)
+            }
             Operand::Let => {
                 if let (Some(name), Some(exp)) = (args.first(), args.get(1)) {
                     if let Expression::Atom(Atom::Token(ref t)) = *(*name) {
