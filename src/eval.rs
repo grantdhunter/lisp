@@ -26,13 +26,27 @@ impl Scope {
         }
         None
     }
+
+    fn get_func<'a>(&'a self, key: &'a String) -> Option<&'a Func> {
+        Scope::get_func_from_scope(self, key)
+    }
+
+    fn get_func_from_scope<'a>(scope: &'a Scope, key: &'a String) -> Option<&'a Func> {
+        if let Some(t) = scope.funcs.get(key) {
+            return Some(t.to_owned().clone());
+        }
+
+        if let Some(ref s) = scope.parent {
+            return Scope::get_func_from_scope(&s, key);
+        }
+        None
+    }
+
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Func {
-    pub name: String,
     pub args: Vec<String>,
-    pub scope: Option<Scope>,
     pub body: Expr,
 }
 
@@ -176,20 +190,26 @@ impl Operand {
                 let name = args.first().map(|f| f.to_string()).unwrap();
 
                 let func = Func {
-                    name: name.clone(),
                     args: vec![],
                     body: Expr {
                         operand: None,
                         args: vec![],
                         parent: None,
-                    },
-                    scope: None,
+                    }
                 };
                 scope.funcs.insert(name, func);
                 Expression::Atom(Atom::Null)
             }
             Operand::Func(ref f) => {
-                
+                if let Some(f) = scope.get_func(f) {
+                        let mut scope = Scope {
+                            parent: None,
+                            variable: HashMap::new(),
+                            funcs: HashMap::new(),
+                        };
+
+                    return f.body.eval(&mut scope)
+                }
                 Expression::Atom(Atom::Null)
             }
             Operand::Let => {
@@ -598,7 +618,6 @@ fn test_simple_def() {
     assert_eq!(
         scope.funcs.get("baz"),
         Some(&Func {
-            name: "baz".to_string(),
             args: vec!["foo".to_string(), "bar".to_string()],
             body: Expr {
                 operand: Some(Operand::Add),
@@ -607,8 +626,7 @@ fn test_simple_def() {
                     Box::new(Expression::Atom(Atom::Token("bar".to_string()))),
                 ],
                 parent: None,
-            },
-            scope: None,
+            }
         })
     );
 }
