@@ -19,7 +19,6 @@ pub enum Operand {
     Eq,
     Not,
     Def,
-    Func(String),
     Let,
 }
 
@@ -56,7 +55,6 @@ impl fmt::Display for Operand {
             Operand::Eq => "=",
             Operand::Not => "!",
             Operand::Def => "def",
-            Operand::Func(ref f) => f,
             Operand::Scope => "\n",
             Operand::Let => "let",
         };
@@ -109,12 +107,6 @@ impl Tokenizer for String {
                 '(' => {
                     it.next();
                     tokens.push(Token::OpenBracket);
-
-                    let token = consume(&mut it, |b| !b.is_whitespace() && b != '(' && b != ')');
-                    match Operand::from_str(&token) {
-                        Some(t) => tokens.push(Token::Operand(t)),
-                        None => tokens.push(Token::Operand(Operand::Func(token))),
-                    };
                 }
                 ')' => {
                     it.next();
@@ -136,7 +128,10 @@ impl Tokenizer for String {
                     match token.as_ref() {
                         "true" => tokens.push(Token::Atom(Atom::Bool(true))),
                         "false" => tokens.push(Token::Atom(Atom::Bool(false))),
-                        _ => tokens.push(Token::Atom(Atom::Token(token))),
+                        _ => match Operand::from_str(&token) {
+                            Some(t) => tokens.push(Token::Operand(t)),
+                            None => tokens.push(Token::Atom(Atom::Token(token))),
+                        },
                     }
                 }
                 _ => {

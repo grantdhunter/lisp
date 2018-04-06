@@ -41,12 +41,11 @@ impl Scope {
         }
         None
     }
-
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Func {
-    pub args: Vec<String>,
+    pub args: Vec<Atom>,
     pub body: Expr,
 }
 
@@ -56,18 +55,25 @@ pub trait Eval {
 
 impl Eval for Expression {
     fn eval(&self, scope: &mut Scope) -> Expression {
-        if let Expression::Expr(ref e) = *self {
-            return e.eval(scope);
-        }
+        match *self {
+            Expression::Expr(ref e) => e.eval(scope),
+            Expression::Atom(Atom::Token(ref t)) => {
+                if let Some(f) = scope.get_func(t) {
+                    let mut scope = Scope {
+                        parent: None,
+                        variable: HashMap::new(),
+                        funcs: HashMap::new(),
+                    };
 
-        if let Expression::Atom(Atom::Token(ref t)) = *self {
-            if let Some(v) = scope.get_var(t) {
-                return v;
+                    return f.body.eval(&mut scope);
+                }
+                if let Some(v) = scope.get_var(t) {
+                    return v;
+                }
+                Expression::Atom(Atom::Null)
             }
-            return Expression::Atom(Atom::Null);
+            _ => self.clone(),
         }
-
-        self.clone()
     }
 }
 
@@ -187,28 +193,18 @@ impl Operand {
                 Expression::Atom(Atom::Bool(false))
             }
             Operand::Def => {
-                let name = args.first().map(|f| f.to_string()).unwrap();
-
-                let func = Func {
-                    args: vec![],
-                    body: Expr {
-                        operand: None,
-                        args: vec![],
-                        parent: None,
+                if let (Some(name), Some(arguments), Some(body)) =
+                    (args.get(0), args.get(1), args.get(2))
+                {
+                    if let Expression::Expr(ref body) = **body {
+                        if let Expression::Atom(Atom::List(ref a)) = **arguments {
+                            let func = Func {
+                                args: a.clone(),
+                                body: body.clone(),
+                            };
+                            scope.funcs.insert(name.to_string(), func);
+                        }
                     }
-                };
-                scope.funcs.insert(name, func);
-                Expression::Atom(Atom::Null)
-            }
-            Operand::Func(ref f) => {
-                if let Some(f) = scope.get_func(f) {
-                        let mut scope = Scope {
-                            parent: None,
-                            variable: HashMap::new(),
-                            funcs: HashMap::new(),
-                        };
-
-                    return f.body.eval(&mut scope)
                 }
                 Expression::Atom(Atom::Null)
             }
@@ -618,7 +614,10 @@ fn test_simple_def() {
     assert_eq!(
         scope.funcs.get("baz"),
         Some(&Func {
-            args: vec!["foo".to_string(), "bar".to_string()],
+            args: vec![
+                Atom::Token("foo".to_string()),
+                Atom::Token("bar".to_string()),
+            ],
             body: Expr {
                 operand: Some(Operand::Add),
                 args: vec![
@@ -626,7 +625,63 @@ fn test_simple_def() {
                     Box::new(Expression::Atom(Atom::Token("bar".to_string()))),
                 ],
                 parent: None,
-            }
+            },
         })
     );
 }
+
+#[test]
+fn test_simple_user_func_call() {
+    let def = Expression::Expr(Expr {
+        operand: Some(Operand::Def),
+        args: vec![
+            Box::new(Expression::Atom(Atom::Token("baz".to_string()))),
+            Box::new(Expression::Atom(Atom::List(vec![
+                Atom::Token("foo".to_string()),
+                Atom::Token("bar".to_string()),
+            ]))),
+            Box::new(Expression::Expr(Expr {
+                operand: Some(Operand::Add),
+                args: vec![
+                    Box::new(Expression::Atom(Atom::Token("foo".to_string()))),
+                    Box::new(Expression::Atom(Atom::Token("bar".to_string()))),
+                ],
+                parent: None,
+            })),
+        ],
+        parent: None,
+    });
+
+    let call = Expression::Atom(Atom::Token("baz".to_string()));
+    let ast = Expr {
+        operand: Some(Operand::Scope),
+        args: vec![Box::new(def), Box::new(call)],
+        parent: None,
+    };
+    let mut scope = Scope {
+        parent: None,
+        variable: HashMap::new(),
+        funcs: HashMap::new(),
+    };
+
+    let result = ast.eval(&mut scope);
+    assert_eq!(result, Expression::Atom(Atom::Null));
+    assert_eq!(
+        scope.funcs.get("baz"),
+        Some(&Func {
+            args: vec![
+                Atom::Token("foo".to_string()),
+                Atom::Token("bar".to_string()),
+            ],
+            body: Expr {
+                operand: Some(Operand::Add),
+                args: vec![
+                    Box::new(Expression::Atom(Atom::Token("foo".to_string()))),
+                    Box::new(Expression::Atom(Atom::Token("bar".to_string()))),
+                ],
+                parent: None,
+            },
+        })
+    );
+}
+
