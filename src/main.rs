@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 mod tokenizer;
 mod parser;
@@ -10,19 +12,26 @@ use eval::{Eval, Scope};
 
 fn main() {
     let tokens = r#"
-(+ (if (& true false) 6 5) 1)
+(let x (+ 1 2))
+(def baz (foo bar) (
+  (+ foo bar x)
+))
+
+(baz 1 2)
 
 "#.to_string()
         .tokenize()
         .unwrap();
+    println!("{:?}\n\n", tokens);
     let ast = tokens.parse();
-    let mut scope = Scope {
+    println!("{}\n\n", ast);
+    let scope = Rc::new(RefCell::new(Scope {
         parent: None,
         variable: HashMap::new(),
         funcs: HashMap::new(),
-    };
+    }));
 
-    let result = ast.eval(&mut scope);
+    let result = ast.eval(scope.clone());
 
     println!("{}", result);
 }

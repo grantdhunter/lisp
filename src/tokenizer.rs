@@ -20,6 +20,8 @@ pub enum Operand {
     Not,
     Def,
     Let,
+    Func(String),
+    List,
 }
 
 impl Operand {
@@ -37,6 +39,7 @@ impl Operand {
             "!" => Some(Operand::Not),
             "def" => Some(Operand::Def),
             "let" => Some(Operand::Let),
+            "list" => Some(Operand::List),
             _ => None,
         }
     }
@@ -57,6 +60,8 @@ impl fmt::Display for Operand {
             Operand::Def => "def",
             Operand::Scope => "\n",
             Operand::Let => "let",
+            Operand::Func(ref token) => token,
+            Operand::List => "list",
         };
         write!(f, "{}", token)
     }

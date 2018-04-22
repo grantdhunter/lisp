@@ -3,94 +3,88 @@ use parser::Expression;
 use tokenizer::Operand;
 use tokenizer::Atom;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug, PartialEq)]
 pub struct Scope {
-    pub parent: Option<Box<Scope>>,
+    pub parent: Option<Rc<RefCell<Scope>>>,
     pub variable: HashMap<String, Expression>,
     pub funcs: HashMap<String, Func>,
 }
 
 impl Scope {
     fn get_var(&self, key: &String) -> Option<Expression> {
-        Scope::get_var_from_scope(self, key)
-    }
-
-    fn get_var_from_scope(scope: &Scope, key: &String) -> Option<Expression> {
-        if let Some(t) = scope.variable.get(key) {
+        if let Some(t) = self.variable.get(key) {
             return Some(t.clone());
         }
 
-        if let Some(ref s) = scope.parent {
-            return Scope::get_var_from_scope(&s, key);
+        if let Some(ref s) = self.parent {
+            return s.borrow().get_var(key);
         }
         None
     }
 
-    fn get_func<'a>(&'a self, key: &'a String) -> Option<&'a Func> {
-        Scope::get_func_from_scope(self, key)
-    }
-
-    fn get_func_from_scope<'a>(scope: &'a Scope, key: &'a String) -> Option<&'a Func> {
-        if let Some(t) = scope.funcs.get(key) {
-            return Some(t.to_owned().clone());
+    fn get_func<'a>(&'a self, key: &'a String) -> Option<Func> {
+        if let Some(t) = self.funcs.get(key) {
+            return Some(t.clone());
         }
 
-        if let Some(ref s) = scope.parent {
-            return Scope::get_func_from_scope(&s, key);
+        if let Some(ref p) = self.parent {
+            return p.borrow().get_func(key);
         }
         None
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Func {
     pub args: Vec<Atom>,
     pub body: Expr,
 }
 
 pub trait Eval {
-    fn eval(&self, scope: &mut Scope) -> Expression;
+    fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression;
 }
 
 impl Eval for Expression {
-    fn eval(&self, scope: &mut Scope) -> Expression {
+    fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression {
         match *self {
-            Expression::Expr(ref e) => e.eval(scope),
+            Expression::Expr(ref e) => {
+                println!("Expr: {}", e);
+                e.eval(scope.clone())
+            }
             Expression::Atom(Atom::Token(ref t)) => {
-                if let Some(f) = scope.get_func(t) {
-                    let mut scope = Scope {
-                        parent: None,
-                        variable: HashMap::new(),
-                        funcs: HashMap::new(),
-                    };
-
-                    return f.body.eval(&mut scope);
-                }
-                if let Some(v) = scope.get_var(t) {
+                println!("Atom: {}", t);
+                if let Some(v) = scope.borrow().get_var(t) {
+                    println!("var: {}", v);
                     return v;
                 }
                 Expression::Atom(Atom::Null)
             }
-            _ => self.clone(),
+            _ => {
+                println!("other: {}", self);
+                self.clone()
+            }
         }
     }
 }
 
 impl Eval for Expr {
-    fn eval(&self, scope: &mut Scope) -> Expression {
+    fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression {
         if let Some(ref o) = self.operand {
-            return o.execute(&self.args, scope);
+            return o.execute(&self.args, scope.clone());
         }
+        println!("eval expr: {:#?}", self);
         Expression::Atom(Atom::Null)
     }
 }
 
 impl Operand {
-    fn execute(&self, args: &[Box<Expression>], scope: &mut Scope) -> Expression {
+    fn execute(&self, args: &[Box<Expression>], scope: Rc<RefCell<Scope>>) -> Expression {
         match *self {
             Operand::Add => Expression::Atom(Atom::Integer(args.iter().fold(0, |acc, a| {
-                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope) {
+                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope.clone()) {
                     return acc + i;
                 }
                 println!("Default Add");
@@ -102,7 +96,7 @@ impl Operand {
                         return Expression::Atom(Atom::Integer(args.iter().skip(1).fold(
                             init,
                             |acc, a| {
-                                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope) {
+                                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope.clone()) {
                                     return acc - i;
                                 }
                                 println!("Default Sub");
@@ -115,7 +109,7 @@ impl Operand {
                 Expression::Atom(Atom::Integer(0))
             }
             Operand::Mul => Expression::Atom(Atom::Integer(args.iter().fold(1, |acc, a| {
-                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope) {
+                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope.clone()) {
                     return acc * i;
                 }
                 println!("Default mul");
@@ -127,7 +121,7 @@ impl Operand {
                         return Expression::Atom(Atom::Integer(args.iter().skip(1).fold(
                             init,
                             |acc, a| {
-                                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope) {
+                                if let Expression::Atom(Atom::Integer(i)) = a.eval(scope.clone()) {
                                     return acc / i;
                                 }
                                 println!("Default div");
@@ -142,36 +136,39 @@ impl Operand {
             Operand::Cat => Expression::Atom(Atom::String(args.iter().fold(
                 String::new(),
                 |mut acc, a| {
-                    if let Expression::Atom(Atom::String(s)) = a.eval(scope) {
+                    if let Expression::Atom(Atom::String(s)) = a.eval(scope.clone()) {
                         acc.push_str(&s);
                     }
                     println!("Default cat");
                     acc
                 },
             ))),
-            Operand::Scope => args[0].eval(scope),
+            Operand::Scope => args.iter()
+                .fold(Expression::Atom(Atom::Null), |_, a| a.eval(scope.clone())),
             Operand::If => {
-                if let Some(Expression::Atom(Atom::Bool(b))) = args.first().map(|a| a.eval(scope)) {
+                if let Some(Expression::Atom(Atom::Bool(b))) =
+                    args.first().map(|a| a.eval(scope.clone()))
+                {
                     if b {
                         return args.get(1)
-                            .map_or(Expression::Atom(Atom::Null), |a| a.eval(scope));
+                            .map_or(Expression::Atom(Atom::Null), |a| a.eval(scope.clone()));
                     } else {
                         return args.get(2)
-                            .map_or(Expression::Atom(Atom::Null), |a| a.eval(scope));
+                            .map_or(Expression::Atom(Atom::Null), |a| a.eval(scope.clone()));
                     }
                 }
                 println!("Default if");
                 Expression::Atom(Atom::Null)
             }
             Operand::And => Expression::Atom(Atom::Bool(args.iter().fold(true, |acc, a| {
-                if let Expression::Atom(Atom::Bool(i)) = a.eval(scope) {
+                if let Expression::Atom(Atom::Bool(i)) = a.eval(scope.clone()) {
                     return acc && i;
                 }
                 println!("Default And");
                 false
             }))),
             Operand::Or => Expression::Atom(Atom::Bool(args.iter().fold(false, |acc, a| {
-                if let Expression::Atom(Atom::Bool(i)) = a.eval(scope) {
+                if let Expression::Atom(Atom::Bool(i)) = a.eval(scope.clone()) {
                     return acc || i;
                 }
                 println!("Default or");
@@ -179,14 +176,16 @@ impl Operand {
             }))),
             Operand::Eq => {
                 if let (Some(a1), Some(a2)) = (args.first(), args.get(1)) {
-                    return Expression::Atom(Atom::Bool(a1.eval(scope) == a2.eval(scope)));
+                    return Expression::Atom(Atom::Bool(
+                        a1.eval(scope.clone()) == a2.eval(scope.clone()),
+                    ));
                 }
                 println!("Default Eq");
                 Expression::Atom(Atom::Bool(false))
             }
             Operand::Not => {
                 if let Some(a) = args.first() {
-                    if let Expression::Atom(Atom::Bool(b)) = a.eval(scope) {
+                    if let Expression::Atom(Atom::Bool(b)) = a.eval(scope.clone()) {
                         return Expression::Atom(Atom::Bool(!b));
                     }
                 }
@@ -197,26 +196,66 @@ impl Operand {
                     (args.get(0), args.get(1), args.get(2))
                 {
                     if let Expression::Expr(ref body) = **body {
-                        if let Expression::Atom(Atom::List(ref a)) = **arguments {
+                        if let Expression::Expr(ref a) = **arguments {
                             let func = Func {
-                                args: a.clone(),
+                                args: a.args
+                                    .iter()
+                                    .filter_map(|a| match **a {
+                                        Expression::Atom(ref a) => Some(a.clone()),
+                                        Expression::Expr(_) => None,
+                                    })
+                                    .collect(),
                                 body: body.clone(),
                             };
-                            scope.funcs.insert(name.to_string(), func);
+                            scope.borrow_mut().funcs.insert(name.to_string(), func);
                         }
                     }
+                }
+
+                Expression::Atom(Atom::Null)
+            }
+            Operand::Func(ref name) => {
+                println!("user func {}", name);
+                println!("{:#?}", scope);
+
+                let params = args.iter().map(|a| a.eval(scope.clone()));
+                let s = scope.borrow();
+                let f = s.get_func(name);
+
+                if let Some(f) = f {
+                    let mut vars = HashMap::new();
+                    f.args.iter().zip(params).for_each(|(k, v)| {
+                        vars.insert(k.to_string(), v);
+                    });
+
+                    let mut local_scope = Rc::new(RefCell::new(Scope {
+                        parent: Some(scope.clone()),
+                        variable: vars,
+                        funcs: HashMap::new(),
+                    }));
+                    println!("func: {}", f.body);
+                    return f.body.eval(local_scope.clone());
                 }
                 Expression::Atom(Atom::Null)
             }
             Operand::Let => {
                 if let (Some(name), Some(exp)) = (args.first(), args.get(1)) {
                     if let Expression::Atom(Atom::Token(ref t)) = *(*name) {
-                        let val = exp.eval(scope);
-                        scope.variable.insert(t.clone(), val);
+                        let val = exp.eval(scope.clone());
+                        scope.borrow_mut().variable.insert(t.clone(), val);
                     }
                 }
                 Expression::Atom(Atom::Null)
             }
+            Operand::List => Expression::Atom(Atom::List(
+                args.iter()
+                    .map(|a| a.eval(scope.clone()))
+                    .filter_map(|a| match a {
+                        Expression::Atom(a) => Some(a),
+                        Expression::Expr(_) => None,
+                    })
+                    .collect(),
+            )),
         }
     }
 }
@@ -684,4 +723,3 @@ fn test_simple_user_func_call() {
         })
     );
 }
-

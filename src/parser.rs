@@ -17,16 +17,16 @@ impl fmt::Display for Expr {
         let mut end = ")";
 
         if let Some(ref op) = self.operand {
-            disp = format!("({}", op);
+            disp = format!("({} ", op);
             if op == &Operand::Scope {
                 end = "\n)"
             }
         } else {
-            disp = "(wat!".to_string();
+            disp = "(".to_string();
         }
 
         for e in &self.args {
-            disp.push_str(&format!(" {}", e));
+            disp.push_str(&format!("{} ", e));
         }
         return write!(f, "{}{}", disp, end);
     }
@@ -46,6 +46,16 @@ impl fmt::Display for Expression {
         }
     }
 }
+#[derive(Debug)]
+struct ParserOptions {
+    in_def: bool,
+}
+
+impl ParserOptions {
+    fn new() -> ParserOptions {
+        ParserOptions { in_def: false }
+    }
+}
 
 pub trait Parser {
     fn parse(&self) -> Box<Expr>;
@@ -60,11 +70,16 @@ impl Parser for Vec<Token> {
             parent: None,
         });
 
-        parse_expr(&mut it, expr)
+        let mut options = ParserOptions::new();
+        parse_expr(&mut it, expr, &mut options)
     }
 }
 
-fn parse_expr<'a, It>(it: &'a mut It, mut stack: Box<Expr>) -> Box<Expr>
+fn parse_expr<'a, It>(
+    it: &'a mut It,
+    mut stack: Box<Expr>,
+    options: &mut ParserOptions,
+) -> Box<Expr>
 where
     It: Iterator<Item = &'a Token>,
 {
@@ -80,22 +95,39 @@ where
                 args: vec![],
                 parent: Some(stack),
             });
-            parse_expr(it, expr)
+            parse_expr(it, expr, options)
         }
         Token::CloseBracket => {
+            options.in_def = false;
+            if stack.operand.is_none() {
+                stack.operand = Some(Operand::Scope)
+            }
+
             if let Some(mut s) = stack.parent.take() {
                 s.args.push(Box::new(Expression::Expr(*stack)));
-                return parse_expr(it, s);
+                return parse_expr(it, s, options);
             }
             stack
         }
         Token::Atom(ref a) => {
-            stack.args.push(Box::new(Expression::Atom(a.clone())));
-            parse_expr(it, stack)
+            if stack.operand.is_none() && options.in_def {
+                stack.operand = Some(Operand::List);
+            }
+
+            if stack.operand.is_none() {
+                stack.operand = Some(Operand::Func(a.to_string()))
+            } else {
+                stack.args.push(Box::new(Expression::Atom(a.clone())));
+            }
+            parse_expr(it, stack, options)
         }
         Token::Operand(ref o) => {
+            if *o == Operand::Def {
+                options.in_def = true;
+            }
+
             stack.operand = Some(o.clone());
-            parse_expr(it, stack)
+            parse_expr(it, stack, options)
         }
     }
 }
