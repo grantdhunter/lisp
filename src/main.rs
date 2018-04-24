@@ -22,9 +22,9 @@ fn main() {
 "#.to_string()
         .tokenize()
         .unwrap();
-    println!("{:?}\n\n", tokens);
+
     let ast = tokens.parse();
-    println!("{}\n\n", ast);
+
     let scope = Rc::new(RefCell::new(Scope {
         parent: None,
         variable: HashMap::new(),

@@ -51,19 +51,15 @@ impl Eval for Expression {
     fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression {
         match *self {
             Expression::Expr(ref e) => {
-                println!("Expr: {}", e);
                 e.eval(scope.clone())
             }
             Expression::Atom(Atom::Token(ref t)) => {
-                println!("Atom: {}", t);
                 if let Some(v) = scope.borrow().get_var(t) {
-                    println!("var: {}", v);
                     return v;
                 }
                 Expression::Atom(Atom::Null)
             }
             _ => {
-                println!("other: {}", self);
                 self.clone()
             }
         }
@@ -75,7 +71,6 @@ impl Eval for Expr {
         if let Some(ref o) = self.operand {
             return o.execute(&self.args, scope.clone());
         }
-        println!("eval expr: {:#?}", self);
         Expression::Atom(Atom::Null)
     }
 }
@@ -215,9 +210,6 @@ impl Operand {
                 Expression::Atom(Atom::Null)
             }
             Operand::Func(ref name) => {
-                println!("user func {}", name);
-                println!("{:#?}", scope);
-
                 let params = args.iter().map(|a| a.eval(scope.clone()));
                 let s = scope.borrow();
                 let f = s.get_func(name);
@@ -233,7 +225,7 @@ impl Operand {
                         variable: vars,
                         funcs: HashMap::new(),
                     }));
-                    println!("func: {}", f.body);
+
                     return f.body.eval(local_scope.clone());
                 }
                 Expression::Atom(Atom::Null)
