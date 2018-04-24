@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+extern crate copperline;
+use copperline::Copperline;
+
 mod tokenizer;
 mod parser;
 mod eval;
@@ -11,27 +14,33 @@ use parser::Parser;
 use eval::{Eval, Scope};
 
 fn main() {
-    let tokens = r#"
-(let x (+ 1 2))
-(def baz (foo bar) (
-  (+ foo bar x)
-))
-
-(baz 1 2)
-
-"#.to_string()
-        .tokenize()
-        .unwrap();
-
-    let ast = tokens.parse();
-
     let scope = Rc::new(RefCell::new(Scope {
         parent: None,
         variable: HashMap::new(),
         funcs: HashMap::new(),
     }));
 
-    let result = ast.eval(scope.clone());
+    let cfg = copperline::Config {
+        encoding: copperline::Encoding::Utf8,
+        mode: copperline::EditMode::Emacs,
+    };
 
-    println!("{}", result);
+    let mut cl = Copperline::new();
+
+    while let Ok(line) = cl.read_line(">> ", &cfg) {
+        match line.as_str() {
+            "exit" | "quit" | "q" => break,
+            "ps" | "printScope" => println!("{:#?}", scope),
+            _ => {}
+        };
+
+        line.tokenize()
+            .map(|s| s.parse())
+            .map(|a| a.eval(scope.clone()))
+            .map(|r| {
+                cl.add_history(line);
+                println!("{}", r);
+            })
+            .unwrap_or_else(|e| println!("{}", e));
+    }
 }

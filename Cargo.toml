@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Grant Hunter <gr@nt-hunter.ca>"]
 
 [dependencies]
+copperline = {git = "https://github.com/srijs/rust-copperline.git"}
