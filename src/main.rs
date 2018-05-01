@@ -1,25 +1,12 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::cell::RefCell;
-
 extern crate copperline;
+
 use copperline::Copperline;
 
-mod tokenizer;
-mod parser;
-mod eval;
+mod rlisp;
 
-use tokenizer::Tokenizer;
-use parser::Parser;
-use eval::{Eval, Scope};
+use rlisp::{Eval, Parser, Scope, Tokenizer};
 
 fn main() {
-    let scope = Rc::new(RefCell::new(Scope {
-        parent: None,
-        variable: HashMap::new(),
-        funcs: HashMap::new(),
-    }));
-
     let cfg = copperline::Config {
         encoding: copperline::Encoding::Utf8,
         mode: copperline::EditMode::Emacs,
@@ -30,13 +17,12 @@ fn main() {
     while let Ok(line) = cl.read_line(">> ", &cfg) {
         match line.as_str() {
             "exit" | "quit" | "q" => break,
-            "ps" | "printScope" => println!("{:#?}", scope),
             _ => {}
         };
 
         line.tokenize()
             .map(|s| s.parse())
-            .map(|a| a.eval(scope.clone()))
+            .map(|a| a.eval(Scope::new().boxup()))
             .map(|r| {
                 cl.add_history(line);
                 println!("{}", r);

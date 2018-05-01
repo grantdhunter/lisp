@@ -1,47 +1,8 @@
-use parser::Expr;
-use parser::Expression;
-use tokenizer::Operand;
-use tokenizer::Atom;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-#[derive(Debug, PartialEq)]
-pub struct Scope {
-    pub parent: Option<Rc<RefCell<Scope>>>,
-    pub variable: HashMap<String, Expression>,
-    pub funcs: HashMap<String, Func>,
-}
-
-impl Scope {
-    fn get_var(&self, key: &String) -> Option<Expression> {
-        if let Some(t) = self.variable.get(key) {
-            return Some(t.clone());
-        }
-
-        if let Some(ref s) = self.parent {
-            return s.borrow().get_var(key);
-        }
-        None
-    }
-
-    fn get_func<'a>(&'a self, key: &'a String) -> Option<Func> {
-        if let Some(t) = self.funcs.get(key) {
-            return Some(t.clone());
-        }
-
-        if let Some(ref p) = self.parent {
-            return p.borrow().get_func(key);
-        }
-        None
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Func {
-    pub args: Vec<Atom>,
-    pub body: Expr,
-}
+use super::types::{Atom, Expr, Expression, Func, Operand, Scope};
 
 pub trait Eval {
     fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression;
@@ -50,18 +11,14 @@ pub trait Eval {
 impl Eval for Expression {
     fn eval(&self, scope: Rc<RefCell<Scope>>) -> Expression {
         match *self {
-            Expression::Expr(ref e) => {
-                e.eval(scope.clone())
-            }
+            Expression::Expr(ref e) => e.eval(scope.clone()),
             Expression::Atom(Atom::Token(ref t)) => {
                 if let Some(v) = scope.borrow().get_var(t) {
                     return v;
                 }
                 Expression::Atom(Atom::Null)
             }
-            _ => {
-                self.clone()
-            }
+            _ => self.clone(),
         }
     }
 }
@@ -220,11 +177,7 @@ impl Operand {
                         vars.insert(k.to_string(), v);
                     });
 
-                    let mut local_scope = Rc::new(RefCell::new(Scope {
-                        parent: Some(scope.clone()),
-                        variable: vars,
-                        funcs: HashMap::new(),
-                    }));
+                    let mut local_scope = Scope::new().set_parent(&scope).boxup();
 
                     return f.body.eval(local_scope.clone());
                 }

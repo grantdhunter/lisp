@@ -1,64 +1,7 @@
-use tokenizer::Token;
-use tokenizer::Operand;
-use tokenizer::Atom;
 use std::iter::Iterator;
-use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Expr {
-    pub operand: Option<Operand>,
-    pub args: Vec<Box<Expression>>,
-    pub parent: Option<Box<Expr>>,
-}
+use super::types::{Expr, Expression, Operand, Token};
 
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut disp;
-        let mut end = ")";
-        let mut is_scope = false;
-        let mut spacer;
-
-        if let Some(ref op) = self.operand {
-            disp = format!("({} ", op);
-            if op == &Operand::Scope {
-                end = "\n)";
-                is_scope = true;
-            }
-        } else {
-            disp = "(".to_string();
-        }
-
-        let len = self.args.len();
-        for (i, e) in self.args.iter().enumerate() {
-            if is_scope {
-                spacer = "\n";
-            } else {
-                spacer = " ";
-            }
-
-            if i == len - 1 {
-                spacer = "";
-            }
-            disp.push_str(&format!("{}{}", e, spacer));
-        }
-        return write!(f, "{}{}", disp, end);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    Atom(Atom),
-    Expr(Expr),
-}
-
-impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Expression::Atom(ref a) => write!(f, "{}", a),
-            Expression::Expr(ref e) => write!(f, "{}", e),
-        }
-    }
-}
 #[derive(Debug)]
 struct ParserOptions {
     in_def: bool,
